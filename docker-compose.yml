@@ -1,24 +1,9 @@
-version: '3.8'
-
+version: '3'
 services:
   neo4j:
-    image: neo4j:5.6
-    container_name: neo4j
+    image: neo4j:latest
     environment:
-      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
-      - NEO4J_dbms_connector_http_listen__address=:${NEO4J_HTTP_PORT}
-      - NEO4J_dbms_connector_bolt_listen__address=:${NEO4J_BOLT_PORT}
+      - NEO4J_AUTH=neo4j/1  # Replace YOUR_PASSWORD with a secure password
     ports:
-      - "${NEO4J_HTTP_PORT}:${NEO4J_HTTP_PORT}"  # HTTP доступ к Neo4j Browser
-      - "${NEO4J_BOLT_PORT}:${NEO4J_BOLT_PORT}"  # Bolt доступ для драйвера
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-      - neo4j_import:/import
-      - neo4j_plugins:/plugins
-
-volumes:
-  neo4j_data:
-  neo4j_logs:
-  neo4j_import:
-  neo4j_plugins:
+      - 7474:7474  # Neo4j browser
+      - 7687:7687  # Bolt protocol for Neo4j drivers
