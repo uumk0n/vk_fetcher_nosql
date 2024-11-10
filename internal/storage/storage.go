@@ -12,6 +12,21 @@ type Neo4jStorage struct {
 	driver neo4j.Driver
 }
 
+func (s *Neo4jStorage) CreateSchema() error {
+	session := s.driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	_, err := session.WriteTransaction(func(tx neo4j.Transaction) (interface{}, error) {
+		// Создание узлов User и Group, если их еще нет
+		// Если у вас есть другие сущности, добавьте их сюда аналогично.
+		query := `
+			CREATE CONSTRAINT IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE
+			CREATE CONSTRAINT IF NOT EXISTS FOR (g:Group) REQUIRE g.id IS UNIQUE
+		`
+		_, err := tx.Run(query, nil)
+		return nil, err
+	})
+	return err
+}
+
 func NewNeo4jStorage(driver neo4j.Driver) *Neo4jStorage {
 	return &Neo4jStorage{driver: driver}
 }
@@ -104,5 +119,57 @@ func (s *Neo4jStorage) saveGroupRelations(session neo4j.Session, user fetcher.Vk
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *Neo4jStorage) PrintSavedData() error {
+
+	session := s.driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	query := `
+		MATCH (u:User)
+		RETURN u.id, u.screen_name, u.name, u.sex, u.city
+		LIMIT 10
+	`
+	// Выполнение запроса
+	result, err := session.Run(query, nil)
+	if err != nil {
+		return err
+	}
+
+	// Вывод результатов в консоль
+	fmt.Println("Displaying the first 10 users:")
+	for result.Next() {
+		// Извлекаем данные из результатов
+		record := result.Record()
+		id, ok := record.Get("u.id") // Извлекаем ID как int64
+		if !ok {
+			return fmt.Errorf("invalid user id")
+		}
+		screenName, ok := record.Get("u.screen_name")
+		if !ok {
+			return fmt.Errorf("invalid user screen_name")
+		}
+		name, ok := record.Get("u.name")
+		if !ok {
+			return fmt.Errorf("invalid user name")
+		}
+		sex, ok := record.Get("u.sex")
+		if !ok {
+			return fmt.Errorf("invalid user")
+		}
+		city, ok := record.Get("u.city")
+		if !ok {
+			return fmt.Errorf("invalid user")
+		}
+
+		// Печать данных
+		fmt.Printf("ID: %d, ScreenName: %s, Name: %s, Sex: %s, City: %s\n", id.(int64), screenName.(string), name.(string), sex.(string), city.(string))
+	}
+
+	// Проверка на ошибку выполнения запроса
+	if err := result.Err(); err != nil {
+		return err
+	}
+
 	return nil
 }

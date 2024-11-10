@@ -50,21 +50,25 @@ func NewVKFetcher(accessToken string) *VKFetcher {
 // FetchData retrieves VK user data with specified depth
 func (f *VKFetcher) FetchData(userID string, depth int) (VkData, error) {
 	usersData := make(map[int]VkUser)
-	err := f.fetchRecursive(userID, depth, usersData)
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return VkData{}, err
+	}
+	err = f.fetchRecursive(userIDInt, depth, usersData)
 	if err != nil {
 		return VkData{}, err
 	}
 	return f.mapToVkData(usersData), nil
 }
 
-func (f *VKFetcher) fetchRecursive(userID string, depth int, usersData map[int]VkUser) error {
+func (f *VKFetcher) fetchRecursive(userID int, depth int, usersData map[int]VkUser) error {
 	if depth <= 0 {
 		return nil
 	}
 
 	user, err := f.fetchUserData(userID)
 	if err != nil {
-		return fmt.Errorf("error fetching user data for user %s: %w", userID, err)
+		return fmt.Errorf("error fetching user data for user %d: %w", userID, err)
 	}
 	usersData[user.ID] = user
 
@@ -78,18 +82,28 @@ func (f *VKFetcher) fetchRecursive(userID string, depth int, usersData map[int]V
 		return err
 	}
 
-	for _, follower := range followers {
-		if _, exists := usersData[follower.ID]; !exists {
-			usersData[follower.ID] = follower
-			if err := f.fetchRecursive(strconv.Itoa(follower.ID), depth-1, usersData); err != nil {
+	for _, followerID := range followers {
+		if _, exists := usersData[followerID]; !exists {
+			follower, err := f.fetchUserData(followerID)
+			fmt.Println("follower", follower)
+			if err != nil {
+				return err
+			}
+			usersData[followerID] = follower
+			if err := f.fetchRecursive(followerID, depth-1, usersData); err != nil {
 				return err
 			}
 		}
 	}
-	for _, s := range subscriptions {
-		if _, exists := usersData[s.ID]; !exists {
-			usersData[s.ID] = s
-			if err := f.fetchRecursive(strconv.Itoa(s.ID), depth-1, usersData); err != nil {
+	for _, sId := range subscriptions {
+		if _, exists := usersData[sId]; !exists {
+			s, err := f.fetchUserData(sId)
+			fmt.Println("s", s)
+			if err != nil {
+				return err
+			}
+			usersData[sId] = s
+			if err := f.fetchRecursive(sId, depth-1, usersData); err != nil {
 				return err
 			}
 		}
@@ -97,8 +111,9 @@ func (f *VKFetcher) fetchRecursive(userID string, depth int, usersData map[int]V
 	return nil
 }
 
-func (f *VKFetcher) fetchUserData(userID string) (VkUser, error) {
-	params := fmt.Sprintf("user_ids=%s&fields=screen_name,sex,city&access_token=%s&v=%s", userID, f.AccessToken, apiVersion)
+func (f *VKFetcher) fetchUserData(userID int) (VkUser, error) {
+	// Modify this to return VkUser based on the userID
+	params := fmt.Sprintf("user_ids=%d&fields=screen_name,sex,city&access_token=%s&v=%s", userID, f.AccessToken, apiVersion)
 	url := fmt.Sprintf("%susers.get?%s", vkAPIBaseURL, params)
 	var response struct {
 		Response []VkUser `json:"response"`
@@ -110,12 +125,12 @@ func (f *VKFetcher) fetchUserData(userID string) (VkUser, error) {
 	return response.Response[0], nil
 }
 
-func (f *VKFetcher) fetchUsers(method string, userID int) ([]VkUser, error) {
+func (f *VKFetcher) fetchUsers(method string, userID int) ([]int, error) {
 	params := fmt.Sprintf("user_id=%d&access_token=%s&v=%s", userID, f.AccessToken, apiVersion)
 	url := fmt.Sprintf("%s%s?%s", vkAPIBaseURL, method, params)
 	var response struct {
 		Response struct {
-			Items []VkUser `json:"items"`
+			Items []int `json:"items"` // Change to []int to match the response structure
 		} `json:"response"`
 	}
 

@@ -23,13 +23,20 @@ func main() {
 	loadEnv()
 	accessToken := os.Getenv("ACCESS_TOKEN")
 
-	driver, err := neo4j.NewDriver(neo4jUri, neo4j.BasicAuth("neo4j", "YOUR_PASSWORD", ""))
+	driver, err := neo4j.NewDriver(
+		fmt.Sprintf("bolt://%s:%s", os.Getenv("NEO4J_HOST"), os.Getenv("NEO4J_BOLT_PORT")),
+		neo4j.BasicAuth(os.Getenv("NEO4J_USER"), os.Getenv("NEO4J_PASSWORD"), ""),
+	)
+
 	if err != nil {
 		log.Fatalf("Failed to create driver: %v", err)
 	}
 	defer driver.Close()
 
-	userId := "your_initial_user_id"
+	userId := "162400179"
+
+	service := storage.NewNeo4jStorage(driver)
+	err = service.CreateSchema()
 
 	vkFetcher := fetcher.NewVKFetcher(accessToken)
 
@@ -38,11 +45,11 @@ func main() {
 		log.Fatalf("Error fetching VK data: %v", err)
 	}
 
-	service := storage.NewNeo4jStorage(driver)
-
 	service.SaveData(data)
 
 	fmt.Println("Data saved to Neo4j")
+
+	service.PrintSavedData()
 }
 
 func loadEnv() {
